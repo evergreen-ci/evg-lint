@@ -2,18 +2,17 @@
 
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/tools"
   packages = [
     "go/gcexportdata",
     "go/internal/gcimporter",
     "go/types/typeutil"
   ]
-  revision = "e1f909067fba6f4764ff0dc14860b136d9181ce0"
+  revision = "02fcd6aaf1349bf6a3f24ef1b62ca07ff618ff59"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d6bf572ec1a4e7b41d1fb9b68517ddf415e15035576fd45683041f628c285d55"
+  inputs-digest = "429caf5c2b5620c0fe61ef359c2e4e72991f2a3e1a6dad222e4030c8e4d830ab"
   solver-name = "gps-cdcl"
   solver-version = 1

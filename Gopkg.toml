@@ -26,8 +26,10 @@
 
 
 [[constraint]]
-  branch = "master"
+  #branch = "master"
   name = "golang.org/x/tools"
+# master is broken: https://github.com/golang/go/issues/25872
+  revision = "02fcd6aaf1349bf6a3f24ef1b62ca07ff618ff59"
 
 [prune]
   go-tests = true
