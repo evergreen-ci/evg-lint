@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	testifyFunctionsWeMispell = []string{"TeardownSuite", "TeardownTest",
+	testifyFunctionsWeMisspell = []string{"TeardownSuite", "TeardownTest",
 		"SetUpSuite", "SetUpTest"}
 	testifyFunctionsCorrected = []string{"TearDownSuite", "TearDownTest",
 		"SetupSuite", "SetupTest"}
@@ -50,6 +50,7 @@ func implementsTestifySuite(obj *ast.Object) bool {
 	return false
 }
 
+// kim: implement nolint
 func (f *file) lintTestify() {
 	if !f.isTest() {
 		return
@@ -69,6 +70,10 @@ func (f *file) lintTestify() {
 				return true
 			}
 			if v.Type != nil && len(v.Type.Params.List) != 0 {
+				return true
+			}
+
+			if f.isIgnored(v) {
 				return true
 			}
 
@@ -93,7 +98,7 @@ func (f *file) lintTestify() {
 				}
 			}
 
-			for i, s := range testifyFunctionsWeMispell {
+			for i, s := range testifyFunctionsWeMisspell {
 				if v.Name.Name == s {
 					f.errorf(node, 0.8, "Testify method was spelled '%s', did you mean '%s'?", v.Name.Name, testifyFunctionsCorrected[i])
 				}
@@ -103,12 +108,16 @@ func (f *file) lintTestify() {
 	})
 }
 
+// kim: implement nolint
 // Lint the spelling of the word "canceled", ensuring it's spelled the AmE way
 func (f *file) lintCancelled() {
 	f.walk(func(node ast.Node) bool {
 		switch v := node.(type) {
 		case *ast.FuncDecl:
 			if v.Name == nil {
+				return true
+			}
+			if f.isIgnored(node) {
 				return true
 			}
 			if strings.Contains(strings.ToLower(v.Name.Name), "cancelled") {
@@ -119,11 +128,27 @@ func (f *file) lintCancelled() {
 	})
 }
 
+// isIgnored returns whether or not the node is to be ignored by a linter.
+func (f *file) isIgnored(node ast.Node) bool {
+	for _, ignore := range f.ignored {
+		// TODO: adjusted?
+		position := f.fset.PositionFor(node.Pos(), false)
+		if ignore.matches(position.Line, "evg-lint") {
+			return true
+		}
+	}
+	return false
+}
+
+// kim: TODO: implement nolint
 func (f *file) lintForLoopDefer() {
 	f.walk(func(node ast.Node) bool {
 		switch v := node.(type) {
 		case *ast.ForStmt:
 			for _, stmt := range v.Body.List {
+				if f.isIgnored(stmt) {
+					return true
+				}
 				tryDefer, ok := stmt.(*ast.DeferStmt)
 				if !ok {
 					continue
@@ -133,6 +158,10 @@ func (f *file) lintForLoopDefer() {
 			}
 		case *ast.RangeStmt:
 			for _, stmt := range v.Body.List {
+				if f.isIgnored(stmt) {
+					return true
+				}
+
 				tryDefer, ok := stmt.(*ast.DeferStmt)
 				if !ok {
 					continue

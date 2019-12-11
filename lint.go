@@ -22,6 +22,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/k0kubun/pp"
 	"golang.org/x/tools/go/gcexportdata"
 )
 
@@ -87,6 +88,7 @@ func (l *Linter) LintFiles(files map[string][]byte) ([]Problem, error) {
 	}
 	var pkgName string
 	for filename, src := range files {
+		pp.Println("linting file", filename)
 		if isGenerated(src) {
 			continue // See issue #239
 		}
@@ -99,12 +101,14 @@ func (l *Linter) LintFiles(files map[string][]byte) ([]Problem, error) {
 		} else if f.Name.Name != pkgName {
 			return nil, fmt.Errorf("%s is in package %s, not %s", filename, f.Name.Name, pkgName)
 		}
+		pp.Println("getting ignores for file:", filename)
 		pkg.files[filename] = &file{
 			pkg:      pkg,
 			f:        f,
 			fset:     pkg.fset,
 			src:      src,
 			filename: filename,
+			ignored:  findIgnored(pkg.fset, f.Comments...),
 		}
 	}
 	if len(pkg.files) == 0 {
@@ -186,6 +190,7 @@ type file struct {
 	fset     *token.FileSet
 	src      []byte
 	filename string
+	ignored  ignoredRanges
 }
 
 func (f *file) isTest() bool { return strings.HasSuffix(f.filename, "_test.go") }
@@ -707,4 +712,69 @@ func srcLine(src []byte, p token.Position) string {
 		hi++
 	}
 	return string(src[lo:hi])
+}
+
+type ignoredRange struct {
+	col        int
+	start, end int
+	linters    []string
+}
+
+func (i *ignoredRange) matches(line int, linter string) bool {
+	if line < i.start || line > i.end {
+		pp.Println("ignore outside of line range")
+		pp.Println("line = ", line)
+		pp.Println("ignore start =", i.start)
+		pp.Println("ignore end = ", i.end)
+		return false
+	}
+	if len(i.linters) == 0 {
+		return true
+	}
+	for _, l := range i.linters {
+		if l == linter {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *ignoredRange) near(col, start int) bool {
+	return col == i.col && i.end == start-1
+}
+
+type ignoredRanges []*ignoredRange
+
+func (ir ignoredRanges) Len() int      { return len(ir) }
+func (ir ignoredRanges) Swap(i, j int) { ir[i], ir[j] = ir[j], ir[i] }
+
+func (ir ignoredRanges) Less(i, j int) bool { return ir[i].end < ir[j].end }
+
+func findIgnored(fset *token.FileSet, comments ...*ast.CommentGroup) ignoredRanges {
+	pp.Println("findIgnored()")
+	var ranges ignoredRanges
+	for _, g := range comments {
+		for _, c := range g.List {
+			text := strings.TrimLeft(c.Text, "/ ")
+			var linters []string
+			if strings.HasPrefix(text, "nolint") {
+				pp.Println("found nolint comment:", text)
+				if strings.HasPrefix(text, "nolint:") {
+					for _, linter := range strings.Split(text[7:], ",") {
+						linters = append(linters, strings.TrimSpace(linter))
+					}
+				}
+				pos := fset.Position(g.Pos())
+				rng := &ignoredRange{
+					col:     pos.Column,
+					start:   pos.Line,
+					end:     fset.Position(g.End()).Line,
+					linters: linters,
+				}
+				pp.Println("new ignore range:", rng)
+				ranges = append(ranges, rng)
+			}
+		}
+	}
+	return ranges
 }
