@@ -50,7 +50,6 @@ func implementsTestifySuite(obj *ast.Object) bool {
 	return false
 }
 
-// kim: implement nolint
 func (f *file) lintTestify() {
 	if !f.isTest() {
 		return
@@ -108,7 +107,6 @@ func (f *file) lintTestify() {
 	})
 }
 
-// kim: implement nolint
 // Lint the spelling of the word "canceled", ensuring it's spelled the AmE way
 func (f *file) lintCancelled() {
 	f.walk(func(node ast.Node) bool {
@@ -131,7 +129,6 @@ func (f *file) lintCancelled() {
 // isIgnored returns whether or not the node is to be ignored by a linter.
 func (f *file) isIgnored(node ast.Node) bool {
 	for _, ignore := range f.ignored {
-		// TODO: adjusted?
 		position := f.fset.PositionFor(node.Pos(), false)
 		if ignore.matches(position.Line, "evg-lint") {
 			return true
@@ -140,7 +137,6 @@ func (f *file) isIgnored(node ast.Node) bool {
 	return false
 }
 
-// kim: TODO: implement nolint
 func (f *file) lintForLoopDefer() {
 	f.walk(func(node ast.Node) bool {
 		switch v := node.(type) {
