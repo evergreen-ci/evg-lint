@@ -212,6 +212,17 @@ func (f *file) errorf(n ast.Node, confidence float64, args ...interface{}) *Prob
 	return f.pkg.errorfAt(pos, confidence, args...)
 }
 
+// isIgnored returns whether or not the node is to be ignored by a linter.
+func (f *file) isIgnored(node ast.Node) bool {
+	for _, ignore := range f.ignored {
+		position := f.fset.PositionFor(node.Pos(), false)
+		if ignore.matches(position.Line, "evg-lint") {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *pkg) errorfAt(pos token.Position, confidence float64, args ...interface{}) *Problem {
 	problem := Problem{
 		Position:   pos,
@@ -763,7 +774,7 @@ func (a *rangeExpander) Visit(node ast.Node) ast.Visitor {
 }
 
 // near returns true if the given ignored range is immediately above the given
-// position.(i.e. at the same level of indentation and starts immediately after
+// position (i.e. at the same level of indentation and starts immediately after
 // the ignore).
 func (i *ignoredRange) near(col, start int) bool {
 	return col == i.col && i.end == start-1

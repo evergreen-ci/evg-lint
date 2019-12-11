@@ -126,17 +126,6 @@ func (f *file) lintCancelled() {
 	})
 }
 
-// isIgnored returns whether or not the node is to be ignored by a linter.
-func (f *file) isIgnored(node ast.Node) bool {
-	for _, ignore := range f.ignored {
-		position := f.fset.PositionFor(node.Pos(), false)
-		if ignore.matches(position.Line, "evg-lint") {
-			return true
-		}
-	}
-	return false
-}
-
 func (f *file) lintForLoopDefer() {
 	f.walk(func(node ast.Node) bool {
 		switch v := node.(type) {
