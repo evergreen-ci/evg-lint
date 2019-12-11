@@ -22,7 +22,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/k0kubun/pp"
 	"golang.org/x/tools/go/gcexportdata"
 )
 
@@ -88,7 +87,6 @@ func (l *Linter) LintFiles(files map[string][]byte) ([]Problem, error) {
 	}
 	var pkgName string
 	for filename, src := range files {
-		pp.Println("linting file", filename)
 		if isGenerated(src) {
 			continue // See issue #239
 		}
@@ -101,7 +99,6 @@ func (l *Linter) LintFiles(files map[string][]byte) ([]Problem, error) {
 		} else if f.Name.Name != pkgName {
 			return nil, fmt.Errorf("%s is in package %s, not %s", filename, f.Name.Name, pkgName)
 		}
-		pp.Println("getting ignores for file:", filename)
 		pkg.files[filename] = &file{
 			pkg:      pkg,
 			f:        f,
@@ -722,10 +719,6 @@ type ignoredRange struct {
 
 func (i *ignoredRange) matches(line int, linter string) bool {
 	if line < i.start || line > i.end {
-		pp.Println("ignore outside of line range")
-		pp.Println("line = ", line)
-		pp.Println("ignore start =", i.start)
-		pp.Println("ignore end = ", i.end)
 		return false
 	}
 	if len(i.linters) == 0 {
