@@ -108,7 +108,7 @@ func (l *Linter) LintFiles(files map[string][]byte) ([]Problem, error) {
 			fset:     pkg.fset,
 			src:      src,
 			filename: filename,
-			ignored:  findIgnored(pkg.fset, f.Comments...),
+			ignored:  findIgnored(f, pkg.fset, f.Comments...),
 		}
 	}
 	if len(pkg.files) == 0 {
@@ -739,6 +739,39 @@ func (i *ignoredRange) matches(line int, linter string) bool {
 	return false
 }
 
+// rangeExpander takes a set of ignoredRanges, determines if they immediately
+// precede a block, and expands the ignore range to include the entire scope of
+// the block.
+type rangeExpander struct {
+	fset   *token.FileSet
+	ranges ignoredRanges
+}
+
+func (a *rangeExpander) Visit(node ast.Node) ast.Visitor {
+	if node == nil {
+		return a
+	}
+	startPos := a.fset.Position(node.Pos())
+	start := startPos.Line
+	end := a.fset.Position(node.End()).Line
+	found := sort.Search(len(a.ranges), func(i int) bool {
+		return a.ranges[i].end+1 >= start
+	})
+	if found < len(a.ranges) && a.ranges[found].near(startPos.Column, start) {
+		r := a.ranges[found]
+		if r.start > start {
+			r.start = start
+		}
+		if r.end < end {
+			r.end = end
+		}
+	}
+	return a
+}
+
+// near returns true if the given ignored range is immediately above the given
+// position.(i.e. at the same level of indentation and starts immediately after
+// the ignore).
 func (i *ignoredRange) near(col, start int) bool {
 	return col == i.col && i.end == start-1
 }
@@ -750,15 +783,13 @@ func (ir ignoredRanges) Swap(i, j int) { ir[i], ir[j] = ir[j], ir[i] }
 
 func (ir ignoredRanges) Less(i, j int) bool { return ir[i].end < ir[j].end }
 
-func findIgnored(fset *token.FileSet, comments ...*ast.CommentGroup) ignoredRanges {
-	pp.Println("findIgnored()")
+func findIgnored(f *ast.File, fset *token.FileSet, comments ...*ast.CommentGroup) ignoredRanges {
 	var ranges ignoredRanges
 	for _, g := range comments {
 		for _, c := range g.List {
 			text := strings.TrimLeft(c.Text, "/ ")
 			var linters []string
 			if strings.HasPrefix(text, "nolint") {
-				pp.Println("found nolint comment:", text)
 				if strings.HasPrefix(text, "nolint:") {
 					for _, linter := range strings.Split(text[7:], ",") {
 						linters = append(linters, strings.TrimSpace(linter))
@@ -771,10 +802,10 @@ func findIgnored(fset *token.FileSet, comments ...*ast.CommentGroup) ignoredRang
 					end:     fset.Position(g.End()).Line,
 					linters: linters,
 				}
-				pp.Println("new ignore range:", rng)
 				ranges = append(ranges, rng)
 			}
 		}
 	}
+	ast.Walk(&rangeExpander{fset: fset, ranges: ranges}, f)
 	return ranges
 }
